@@ -4,7 +4,7 @@ Plays a mechanical-keyboard sound for every key you press, in any app (Wayland o
 
 ```
 ./install.sh                               # fetch packs, build, link into ~/.local/bin
-keysounds-toggle                           # start/stop it (bound to Super+Alt+K in the dotfiles)
+keysounds-toggle                           # sounds on/off, or start it (Super+Alt+K in the dotfiles)
 ./target/release/keysounds                 # NK Cream (default)
 ./target/release/keysounds -p holy-pandas -v 0.4
 ./target/release/keysounds --list-packs    # installed packs
@@ -15,8 +15,13 @@ The sounds are real recordings: the 18 packs bundled with [Mechvibes](https://gi
 
 Needs read access to `/dev/input/event*` (be in the `input` group).
 
+## Tray icon
+
+keysounds puts an icon in the system tray (waybar's tray drawer here). Left click turns the sounds on/off. The right-click menu picks the sound pack (a short "hello world" sample plays straight away, so you can compare packs), the volume and the key-release sounds. The choice is remembered in `~/.config/keysounds/state.json`; `-p`/`-v` on the command line override it for that run. `--no-tray` runs without the icon.
+
 ## How it works
 
 - `src/input.rs`: reads raw key events from the kernel through evdev, one thread per keyboard. Wayland doesn't let one app see another app's keys, so the app reads them below the display server.
 - `src/pack.rs`: loads a Mechvibes pack. Every file is decoded once at startup (symphonia: ogg/mp3/wav), mixed down to mono, resampled to the sound card's rate and peak-normalized, so all packs are equally loud. It translates key codes: Mechvibes uses libuiohook's codes, which match evdev's for the main keys but not for arrows and other extended keys.
+- `src/tray.rs`: the tray icon, a StatusNotifierItem over D-Bus (`ksni`). The menu only sends messages. The main loop applies them, together with key events and SIGUSR1 from `keysounds-toggle`, and pushes the new state back to the icon.
 - `src/audio.rs`: a small real-time mixer on cpal. The sound card's callback pulls new sounds (shared `Arc<[f32]>` clips, so no copying) from a channel without blocking, adds up all the active ones and soft-clips the result.

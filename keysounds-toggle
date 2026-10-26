@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Starts keysounds if it isn't running, stops it if it is. Extra arguments
-# are passed to keysounds (e.g. `keysounds-toggle -p holy-pandas`).
+# Turns the sounds on/off (SIGUSR1; keysounds shows the notification and
+# keeps its tray icon), or starts keysounds if it isn't running. Extra
+# arguments are passed to keysounds when it is started.
 if pgrep -x keysounds >/dev/null; then
-    pkill -x keysounds
-    notify-send -t 1500 -a keysounds "Key sounds off" 2>/dev/null
+    pkill -USR1 -x keysounds
 else
     setsid -f "$HOME/.local/bin/keysounds" "$@" >/tmp/keysounds.log 2>&1 </dev/null
     notify-send -t 1500 -a keysounds "Key sounds on" 2>/dev/null

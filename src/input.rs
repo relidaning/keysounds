@@ -51,7 +51,8 @@ pub fn list_keyboards() -> Vec<(String, String)> {
 }
 
 /// Spawns one reader thread per keyboard and returns how many were found.
-pub fn spawn_readers(tx: Sender<KeyEvent>) -> usize {
+/// Events are sent as any message type that can be made from a `KeyEvent`.
+pub fn spawn_readers<M: From<KeyEvent> + Send + 'static>(tx: Sender<M>) -> usize {
     let mut count = 0;
     for (path, mut dev) in evdev::enumerate().filter(|(_, d)| is_keyboard(d)) {
         let tx = tx.clone();
@@ -75,7 +76,7 @@ pub fn spawn_readers(tx: Sender<KeyEvent>) -> usize {
                         continue;
                     }
                     let event = KeyEvent { code: key.code(), pressed: value == 1 };
-                    if tx.send(event).is_err() {
+                    if tx.send(event.into()).is_err() {
                         return;
                     }
                 }

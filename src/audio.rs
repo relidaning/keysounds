@@ -15,14 +15,19 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 /// is a pointer copy, not a copy of the samples.
 pub type Clip = Arc<[f32]>;
 
+/// A clip and the gain to play it at. The volume is applied while mixing,
+/// so changing it takes effect on the next key without reloading the pack.
+pub type Play = (Clip, f32);
+
 struct Voice {
     samples: Clip,
+    gain: f32,
     pos: usize,
 }
 
 pub struct Output {
     pub sample_rate: f32,
-    pub tx: Sender<Clip>,
+    pub tx: Sender<Play>,
     // Dropping the stream stops playback, so it has to be kept alive.
     _stream: Stream,
 }
@@ -55,7 +60,7 @@ fn build(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     format: cpal::SampleFormat,
-) -> Result<(Sender<Clip>, Stream), Box<dyn std::error::Error>> {
+) -> Result<(Sender<Play>, Stream), Box<dyn std::error::Error>> {
     use cpal::SampleFormat as F;
     let (tx, rx) = channel();
     let stream = match format {
@@ -68,7 +73,7 @@ fn build(
     Ok((tx, stream))
 }
 
-fn stream_for<S>(device: &cpal::Device, config: &cpal::StreamConfig, rx: Receiver<Clip>) -> Result<Stream, cpal::Error>
+fn stream_for<S>(device: &cpal::Device, config: &cpal::StreamConfig, rx: Receiver<Play>) -> Result<Stream, cpal::Error>
 where
     S: SizedSample + FromSample<f32>,
 {
@@ -78,14 +83,14 @@ where
     device.build_output_stream(
         config.clone(),
         move |data: &mut [S], _| {
-            while let Ok(samples) = rx.try_recv() {
-                voices.push(Voice { samples, pos: 0 });
+            while let Ok((samples, gain)) = rx.try_recv() {
+                voices.push(Voice { samples, gain, pos: 0 });
             }
             for frame in data.chunks_mut(channels) {
                 let mut mix = 0.0f32;
                 for v in voices.iter_mut() {
                     if let Some(s) = v.samples.get(v.pos) {
-                        mix += *s;
+                        mix += *s * v.gain;
                         v.pos += 1;
                     }
                 }

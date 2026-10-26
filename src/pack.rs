@@ -107,16 +107,30 @@ pub fn list() -> Vec<(String, String)> {
         for e in entries.flatten() {
             let cfg = e.path().join("config.json");
             let Ok(text) = std::fs::read_to_string(&cfg) else { continue };
-            let name = serde_json::from_str::<Value>(&text)
-                .ok()
-                .and_then(|v| v["name"].as_str().map(String::from))
-                .unwrap_or_default();
-            packs.push((e.file_name().to_string_lossy().into_owned(), name));
+            let dir = e.file_name().to_string_lossy().into_owned();
+            let cfg = serde_json::from_str::<Value>(&text).unwrap_or(Value::Null);
+            packs.push((dir.clone(), display_name(&cfg, &dir)));
         }
     }
     packs.sort();
     packs.dedup_by(|a, b| a.0 == b.0);
     packs
+}
+
+/// The pack's own name, unless it's a bare lowercase word (holy-pandas calls
+/// itself "pandas"); then the directory name, title-cased.
+fn display_name(cfg: &Value, dir: &str) -> String {
+    match cfg["name"].as_str() {
+        Some(n) if n.chars().any(char::is_uppercase) => n.to_string(),
+        _ => dir
+            .split(['-', '_'])
+            .map(|w| {
+                let mut c = w.chars();
+                c.next().map(|f| f.to_uppercase().chain(c).collect::<String>()).unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
 }
 
 /// Finds a pack by directory name, or takes `name` as a path to one.
@@ -129,11 +143,11 @@ pub fn find(name: &str) -> Option<PathBuf> {
 }
 
 /// Loads a pack, resampled to `sample_rate` and scaled so its loudest sound
-/// peaks at `volume`. Packs are recorded at very different levels; this
-/// makes them all equally loud.
-pub fn load(dir: &Path, sample_rate: f32, volume: f32) -> Result<Pack> {
+/// peaks at 1.0. Packs are recorded at very different levels; this makes
+/// them all equally loud.
+pub fn load(dir: &Path, sample_rate: f32) -> Result<Pack> {
     let cfg: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("config.json"))?)?;
-    let name = cfg["name"].as_str().unwrap_or("?").to_string();
+    let name = display_name(&cfg, &dir.file_name().unwrap_or_default().to_string_lossy());
     let defines = cfg["defines"].as_object().ok_or("config.json has no \"defines\"")?;
     let single = cfg["key_define_type"].as_str() == Some("single");
 
@@ -200,7 +214,7 @@ pub fn load(dir: &Path, sample_rate: f32, volume: f32) -> Result<Pack> {
     if peak == 0.0 {
         return Err("pack has no audible press sounds".into());
     }
-    let gain = volume / peak;
+    let gain = 1.0 / peak;
     let clip = |mut v: Vec<f32>| -> Clip {
         v.iter_mut().for_each(|s| *s *= gain);
         fade_out(&mut v, sample_rate);
@@ -334,10 +348,10 @@ mod tests {
     fn every_installed_pack_loads() {
         let packs = list();
         for (dir, _) in &packs {
-            let pack = load(&find(dir).unwrap(), 48_000.0, 0.6).unwrap_or_else(|e| panic!("{dir}: {e}"));
+            let pack = load(&find(dir).unwrap(), 48_000.0).unwrap_or_else(|e| panic!("{dir}: {e}"));
             for code in [30u16, 57, 28, 14, 103, 200] {
                 let c = pack.clip(code, true, 7).unwrap_or_else(|| panic!("{dir}: no sound for {code}"));
-                assert!(!c.is_empty() && c.iter().all(|s| s.is_finite() && s.abs() <= 0.6 + 1e-4));
+                assert!(!c.is_empty() && c.iter().all(|s| s.is_finite() && s.abs() <= 1.0 + 1e-4));
             }
         }
     }
