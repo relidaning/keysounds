@@ -3,15 +3,15 @@
 Plays a mechanical-keyboard sound for every key you press, in any app (Wayland or X11).
 
 ```
-./fetch-packs.sh                           # downloads the sound packs into ./packs
-cargo build --release
+./install.sh                               # fetch packs, build, link into ~/.local/bin
+keysounds-toggle                           # start/stop it (bound to Super+Alt+K in the dotfiles)
 ./target/release/keysounds                 # NK Cream (default)
 ./target/release/keysounds -p holy-pandas -v 0.4
 ./target/release/keysounds --list-packs    # installed packs
 ./target/release/keysounds --list          # which keyboards it sees
 ```
 
-The sounds are real recordings: the 18 packs bundled with [Mechvibes](https://github.com/hainguyents13/mechvibes) (MIT), in its pack format, so any Mechvibes pack from the web works too. Drop it into `~/.local/share/keysounds/packs/<name>/` or pass its directory to `-p`. `--no-release` silences the key-up sound.
+The sounds are real recordings: the 18 packs bundled with [Mechvibes](https://github.com/hainguyents13/mechvibes) (MIT), in its pack format, so any Mechvibes pack from the web works too. Drop it into `~/.local/share/keysounds/packs/<name>/` or pass its directory to `-p`. `--no-release` silences the key-up sound. Modifiers (Ctrl, Shift, Alt, Super) and autorepeat never make a sound.
 
 Needs read access to `/dev/input/event*` (be in the `input` group).
 

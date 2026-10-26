@@ -25,6 +25,21 @@ fn is_keyboard(dev: &Device) -> bool {
     })
 }
 
+/// Modifiers are held for shortcuts rather than typed, so they stay silent.
+fn is_modifier(key: KeyCode) -> bool {
+    matches!(
+        key,
+        KeyCode::KEY_LEFTCTRL
+            | KeyCode::KEY_RIGHTCTRL
+            | KeyCode::KEY_LEFTSHIFT
+            | KeyCode::KEY_RIGHTSHIFT
+            | KeyCode::KEY_LEFTALT
+            | KeyCode::KEY_RIGHTALT
+            | KeyCode::KEY_LEFTMETA
+            | KeyCode::KEY_RIGHTMETA
+    )
+}
+
 pub fn list_keyboards() -> Vec<(String, String)> {
     evdev::enumerate()
         .filter(|(_, dev)| is_keyboard(dev))
@@ -56,7 +71,7 @@ pub fn spawn_readers(tx: Sender<KeyEvent>) -> usize {
                 // value: 1 = press, 0 = release, 2 = autorepeat. A held key
                 // doesn't click again on a real keyboard, so repeats are dropped.
                 if let EventSummary::Key(_, key, value) = ev.destructure() {
-                    if value == 2 {
+                    if value == 2 || is_modifier(key) {
                         continue;
                     }
                     let event = KeyEvent { code: key.code(), pressed: value == 1 };
