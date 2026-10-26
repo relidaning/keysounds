@@ -4,7 +4,10 @@ set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 REPO=$(pwd)
 
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 command -v cargo >/dev/null || { echo "keysounds: cargo not found (install rustup first)"; exit 1; }
+pkg-config --exists alsa 2>/dev/null || {
+    echo "keysounds: ALSA headers missing (apt: libasound2-dev pkg-config, arch: alsa-lib pkgconf)"; exit 1; }
 
 if [[ -z "$(ls -A packs 2>/dev/null)" ]]; then
     ./fetch-packs.sh
