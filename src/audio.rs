@@ -8,16 +8,21 @@
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SizedSample, Stream};
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
+/// A ready-to-play mono sound. Shared, so sending one to the audio thread
+/// is a pointer copy, not a copy of the samples.
+pub type Clip = Arc<[f32]>;
+
 struct Voice {
-    samples: Vec<f32>,
+    samples: Clip,
     pos: usize,
 }
 
 pub struct Output {
     pub sample_rate: f32,
-    pub tx: Sender<Vec<f32>>,
+    pub tx: Sender<Clip>,
     // Dropping the stream stops playback, so it has to be kept alive.
     _stream: Stream,
 }
@@ -50,7 +55,7 @@ fn build(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     format: cpal::SampleFormat,
-) -> Result<(Sender<Vec<f32>>, Stream), Box<dyn std::error::Error>> {
+) -> Result<(Sender<Clip>, Stream), Box<dyn std::error::Error>> {
     use cpal::SampleFormat as F;
     let (tx, rx) = channel();
     let stream = match format {
@@ -63,7 +68,7 @@ fn build(
     Ok((tx, stream))
 }
 
-fn stream_for<S>(device: &cpal::Device, config: &cpal::StreamConfig, rx: Receiver<Vec<f32>>) -> Result<Stream, cpal::Error>
+fn stream_for<S>(device: &cpal::Device, config: &cpal::StreamConfig, rx: Receiver<Clip>) -> Result<Stream, cpal::Error>
 where
     S: SizedSample + FromSample<f32>,
 {
