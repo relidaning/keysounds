@@ -25,3 +25,7 @@ keysounds puts an icon in the system tray (waybar's tray drawer here). Left clic
 - `src/pack.rs`: loads a Mechvibes pack. Every file is decoded once at startup (symphonia: ogg/mp3/wav), mixed down to mono, resampled to the sound card's rate and peak-normalized, so all packs are equally loud. It translates key codes: Mechvibes uses libuiohook's codes, which match evdev's for the main keys but not for arrows and other extended keys.
 - `src/tray.rs`: the tray icon, a StatusNotifierItem over D-Bus (`ksni`). The menu only sends messages. The main loop applies them, together with key events and SIGUSR1 from `keysounds-toggle`, and pushes the new state back to the icon.
 - `src/audio.rs`: a small real-time mixer on cpal. The sound card's callback pulls new sounds (shared `Arc<[f32]>` clips, so no copying) from a channel without blocking, adds up all the active ones and soft-clips the result. Once nothing has played for 3 s the stream is paused (a running stream wakes every few milliseconds even for silence, ~1% of a core plus PipeWire's share); the next sound resumes it.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The sound packs are not part of this repo: `fetch-packs.sh` downloads them from Mechvibes (also MIT).
