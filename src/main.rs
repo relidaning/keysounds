@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::process::{Command, exit};
 use std::sync::Arc;
-use std::sync::mpsc::channel;
+use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -45,6 +45,9 @@ pub enum Msg {
     ToggleMuted,
     SetRelease(bool),
     Preview,
+    /// A sound from the preview thread; played through the main loop so
+    /// it can wake a paused stream.
+    Play(audio::Play),
     Quit,
 }
 
@@ -145,18 +148,18 @@ fn notify(text: &str) {
 
 /// Types "hello world" with the pack, so a newly picked pack can be heard
 /// without leaving the menu.
-fn play_preview(pack: Arc<Pack>, tx: std::sync::mpsc::Sender<audio::Play>, gain: f32, release: bool) {
+fn play_preview(pack: Arc<Pack>, tx: Sender<Msg>, gain: f32, release: bool) {
     // evdev codes for h e l l o ␣ w o r l d
     const KEYS: [u16; 11] = [35, 18, 38, 38, 24, 57, 17, 24, 19, 38, 32];
     thread::spawn(move || {
         for (i, &code) in KEYS.iter().enumerate() {
             if let Some(c) = pack.clip(code, true, i as u32) {
-                let _ = tx.send((c, gain));
+                let _ = tx.send(Msg::Play((c, gain)));
             }
             thread::sleep(Duration::from_millis(55));
             if release {
                 if let Some(c) = pack.clip(code, false, i as u32) {
-                    let _ = tx.send((c, gain));
+                    let _ = tx.send(Msg::Play((c, gain)));
                 }
             }
             thread::sleep(Duration::from_millis(60 + (i as u64 * 37) % 50));
@@ -232,14 +235,21 @@ fn main() {
     eprintln!("pack \"{}\", volume {volume}. Ctrl+C to quit.", pack.name);
 
     let mut rng = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(1).max(1);
-    for msg in rx {
+    loop {
+        // Checked on every message too, so typing while muted lets it pause.
+        out.pause_if_idle();
+        let msg = match rx.recv_timeout(audio::IDLE_PAUSE) {
+            Ok(m) => m,
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
         match msg {
             Msg::Key(ev) => {
                 if muted || (!ev.pressed && !release) {
                     continue;
                 }
                 if let Some(clip) = pack.clip(ev.code, ev.pressed, next_rand(&mut rng)) {
-                    if out.tx.send((clip, volume)).is_err() {
+                    if out.play((clip, volume)).is_err() {
                         break;
                     }
                 }
@@ -255,7 +265,7 @@ fn main() {
                         pack_idx = i;
                         eprintln!("pack \"{}\"", pack.name);
                         save_state(dir, volume, release);
-                        play_preview(pack.clone(), out.tx.clone(), volume, release);
+                        play_preview(pack.clone(), tx.clone(), volume, release);
                     }
                     Err(e) => {
                         eprintln!("keysounds: cannot load {dir}: {e}");
@@ -269,7 +279,7 @@ fn main() {
                 volume = v;
                 save_state(&packs[pack_idx].0, volume, release);
                 sync_tray(&|t| t.volume = v);
-                play_preview(pack.clone(), out.tx.clone(), volume, release);
+                play_preview(pack.clone(), tx.clone(), volume, release);
             }
             Msg::SetRelease(r) => {
                 release = r;
@@ -285,7 +295,10 @@ fn main() {
                 sync_tray(&|t| t.muted = muted);
                 notify(if muted { "Key sounds off" } else { "Key sounds on" });
             }
-            Msg::Preview => play_preview(pack.clone(), out.tx.clone(), volume, release),
+            Msg::Play(p) => {
+                let _ = out.play(p);
+            }
+            Msg::Preview => play_preview(pack.clone(), tx.clone(), volume, release),
             Msg::Quit => break,
         }
     }
