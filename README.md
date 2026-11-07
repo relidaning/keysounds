@@ -11,9 +11,16 @@ keysounds-toggle                           # sounds on/off, or start it (Super+A
 ./target/release/keysounds --list          # which keyboards it sees
 ```
 
-The sounds are real recordings: the 18 packs bundled with [Mechvibes](https://github.com/hainguyents13/mechvibes) (MIT), in its pack format, so any Mechvibes pack from the web works too. Drop it into `~/.local/share/keysounds/packs/<name>/` or pass its directory to `-p`. `--no-release` silences the key-up sound. Modifiers (Ctrl, Shift, Alt, Super) and autorepeat never make a sound.
+The sounds are real recordings bundled with [Mechvibes Electron](https://github.com/hainguyents13/mechvibes-electron) (MIT), in its legacy pack format. Compatible custom packs also work: drop one into `~/.local/share/keysounds/packs/<name>/` or pass its directory to `-p`. `--no-release` silences the key-up sound. Modifiers (Ctrl, Shift, Alt, Super) and autorepeat never make a sound.
 
 Needs read access to `/dev/input/event*` (be in the `input` group).
+
+`config/defaults.sh` selects the pinned legacy sound-pack repository, tag,
+commit and subtree; `KEYSOUNDS_PACK_*` environment variables override it.
+The original source moved to `hainguyents13/mechvibes-electron`. The current
+Mechvibes repository uses a different pack format: changing its URL alone is
+not a compatible replacement for `src/pack.rs`. Existing packs are preserved;
+an empty or incomplete default pack is retried on installation.
 
 ## Tray icon
 

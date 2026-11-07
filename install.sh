@@ -9,7 +9,7 @@ command -v cargo >/dev/null || { echo "keysounds: cargo not found (install rustu
 pkg-config --exists alsa 2>/dev/null || {
     echo "keysounds: ALSA headers missing (apt: libasound2-dev pkg-config, arch: alsa-lib pkgconf)"; exit 1; }
 
-if [[ -z "$(ls -A packs 2>/dev/null)" ]]; then
+if ! python3 scripts/check-packs.py packs; then
     ./fetch-packs.sh
 fi
 
