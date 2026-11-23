@@ -80,7 +80,7 @@ impl ksni::Tray for Tray {
             .into(),
             MenuItem::Separator,
             SubMenu {
-                label: format!("Sound pack: {}", self.pack_name()),
+                label: "Sound pack".into(),
                 submenu: vec![
                     RadioGroup {
                         selected: self.pack,

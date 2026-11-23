@@ -13,7 +13,12 @@ keysounds-toggle                           # sounds on/off, or start it (Super+A
 
 The sounds are real recordings bundled with [Mechvibes Electron](https://github.com/hainguyents13/mechvibes-electron) (MIT), in its legacy pack format. Compatible custom packs also work: drop one into `~/.local/share/keysounds/packs/<name>/` or pass its directory to `-p`. `--no-release` silences the key-up sound. Modifiers (Ctrl, Shift, Alt, Super) and autorepeat never make a sound.
 
-Needs read access to `/dev/input/event*` (be in the `input` group).
+If `./install.sh` reports `cargo not found`, install Rust and Cargo first. On
+Arch or Omarchy, run `sudo pacman -S rust`, then rerun `./install.sh`.
+
+If KeySounds exits with `no readable keyboard in /dev/input`, run
+`sudo usermod -aG input "$USER"`, then log out and back in so your session
+picks up the new group membership.
 
 `config/defaults.sh` selects the pinned legacy sound-pack repository, tag,
 commit and subtree; `KEYSOUNDS_PACK_*` environment variables override it.
@@ -24,7 +29,7 @@ an empty or incomplete default pack is retried on installation.
 
 ## Tray icon
 
-keysounds puts an icon in the system tray (waybar's tray drawer here). Left click turns the sounds on/off. The right-click menu picks the sound pack (a short "hello world" sample plays straight away, so you can compare packs), the volume and the key-release sounds. The choice is remembered in `~/.config/keysounds/state.json`; `-p`/`-v` on the command line override it for that run. `--no-tray` runs without the icon.
+keysounds puts an icon in the system tray (waybar's tray drawer here). Left click turns the sounds on/off. Right-click the icon, open **Sound pack**, and click a pack to play a short "hello world" sample. The submenu marks the selected pack. The same menu also controls volume and key-release sounds. The choice is remembered in `~/.config/keysounds/state.json`; `-p`/`-v` on the command line override it for that run. `--no-tray` runs without the icon.
 
 ## How it works
 

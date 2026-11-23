@@ -9,7 +9,11 @@ def ready(root):
     try:
         config = json.loads((pack / 'config.json').read_text())
         if not config.get('defines'): return False
-        sounds = [config.get('sound')] if config.get('key_define_type', 'single') == 'single' else list(config['defines'].values())
+        if config.get('key_define_type', 'single') == 'single':
+            sounds = [config.get('sound')]
+        else:
+            # Legacy packs use null to leave a key unmapped.
+            sounds = [name for name in config['defines'].values() if name is not None]
         return bool(sounds) and all(isinstance(name, str) and (pack / name).is_file() and (pack / name).stat().st_size for name in sounds)
     except (OSError, ValueError, TypeError):
         return False
